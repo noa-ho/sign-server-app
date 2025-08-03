@@ -16,7 +16,7 @@ const CLIENT_URL = 'https://sign-client-app-2.onrender.com';
 
 
 // מאפשרים גישה רק מהקליינט בענן
-app.use(cors({ origin: CLIENT_URL }));
+app.use(cors({ origin: ['http://localhost:3000', CLIENT_URL] }));
 app.use(express.json({ limit: '10mb' }));
 
 const UPLOAD_FOLDER = path.join(__dirname, 'uploads');
@@ -131,6 +131,11 @@ app.post('/sign/:fileId', async (req, res) => {
   }
 });
 
+app.get('/', (req, res) => {
+  res.send('✅ שרת חתימות פעיל');
+});
+
 app.listen(PORT, () => {
   console.log(`✅ השרת רץ על פורט ${PORT}`);
 });
+
