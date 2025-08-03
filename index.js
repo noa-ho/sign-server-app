@@ -13,8 +13,8 @@ require('dotenv').config();
 const app = express();
 const PORT = process.env.PORT || 5000;
 
-// שימי כאן את כתובת הקליינט בענן (Vercel)
-const CLIENT_URL = 'https://sign-client-990xb3je1-noas-projects-656650ad.vercel.app';
+// כתובת הקליינט בענן (Vercel)
+const CLIENT_URL = 'https://sign-client.vercel.app';
 
 // מאפשרים רק את הכתובת של הקליינט לגשת לשרת
 app.use(cors({ origin: CLIENT_URL }));
@@ -37,7 +37,7 @@ app.post('/upload', upload.single('file'), (req, res) => {
   if (!req.file) return res.status(400).json({ error: 'לא התקבל קובץ' });
   const fileId = path.parse(req.file.filename).name;
 
-  // שימי כאן את כתובת הקליינט בענן בקישור לשיתוף
+  // קישור לשיתוף לקליינט בענן
   const shareLink = `${CLIENT_URL}/sign/${fileId}`;
   res.json({ message: 'הקובץ התקבל', shareLink });
 });
@@ -132,5 +132,5 @@ app.post('/sign/:fileId', async (req, res) => {
 });
 
 app.listen(PORT, () => {
-  console.log(`✅ השרת רץ על http://localhost:${PORT}`);
+console.log(`✅ השרת רץ, PORT=${PORT}`);
 });
