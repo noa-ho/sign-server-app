@@ -14,7 +14,12 @@ const app = express();
 const PORT = process.env.PORT || 5000;
 
 const CLIENT_URL = 'https://sign-client-app.onrender.com';
-app.use(cors({ origin: CLIENT_URL }));
+app.use(cors({
+  origin: [
+    'http://localhost:3000',
+    'https://sign-client-app.onrender.com'
+  ]
+}));
 
 app.use(express.json({ limit: '10mb' }));
 
