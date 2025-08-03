@@ -33,13 +33,23 @@ const storage = multer.diskStorage({
 const upload = multer({ storage });
 
 app.post('/upload', upload.single('file'), (req, res) => {
-  if (!req.file) return res.status(400).json({ error: 'לא התקבל קובץ' });
-  const fileId = path.parse(req.file.filename).name;
+  console.log('קיבלנו בקשה להעלאת קובץ');
+  console.log('req.file:', req.file);  // כאן נדפיס את האובייקט של הקובץ שהגיע
 
-  // קישור שיתוף עם כתובת הקליינט בענן
+  if (!req.file) {
+    console.log('לא התקבל קובץ ב-body של הבקשה');
+    return res.status(400).json({ error: 'לא התקבל קובץ' });
+  }
+
+  const fileId = path.parse(req.file.filename).name;
   const shareLink = `${CLIENT_URL}/sign/${fileId}`;
+
+  console.log('הקובץ התקבל בהצלחה, מזהה קובץ:', fileId);
+  console.log('קישור לשיתוף:', shareLink);
+
   res.json({ message: 'הקובץ התקבל', shareLink });
 });
+
 
 const transporter = nodemailer.createTransport({
   host: 'smtp.gmail.com',
