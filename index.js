@@ -13,11 +13,9 @@ require('dotenv').config();
 const app = express();
 const PORT = process.env.PORT || 5000;
 
-// כתובת הקליינט בענן (Vercel)
-const CLIENT_URL = 'https://sign-client.vercel.app';
-
-// מאפשרים רק את הכתובת של הקליינט לגשת לשרת
+/const CLIENT_URL = 'https://sign-client-app.onrender.com';
 app.use(cors({ origin: CLIENT_URL }));
+
 app.use(express.json({ limit: '10mb' }));
 
 const UPLOAD_FOLDER = path.join(__dirname, 'uploads');
