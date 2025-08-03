@@ -145,7 +145,6 @@ const app = express();
 const PORT = process.env.PORT || 5000;
 const CLIENT_URL = 'https://sign-client-app-2.onrender.com';
 
-// מאפשרים גישה רק מהקליינט בענן
 app.use(cors({ origin: ['http://localhost:3000', CLIENT_URL] }));
 app.use(express.json({ limit: '10mb' }));
 
@@ -163,19 +162,21 @@ const storage = multer.diskStorage({
 const upload = multer({ storage });
 
 app.post('/upload', upload.single('file'), (req, res) => {
-  console.log('קיבלנו בקשה להעלאת קובץ');
-  console.log('req.file:', req.file);
+  console.log('--- Start of /upload request ---');
+  console.log('Request body:', req.body);
+  console.log('Request file:', req.file);
 
   if (!req.file) {
-    console.log('לא התקבל קובץ ב-body של הבקשה');
+    console.log('Error: No file received');
     return res.status(400).json({ error: 'לא התקבל קובץ' });
   }
 
   const fileId = path.parse(req.file.filename).name;
   const shareLink = `${CLIENT_URL}/sign/${fileId}`;
 
-  console.log('הקובץ התקבל בהצלחה, מזהה קובץ:', fileId);
-  console.log('קישור לשיתוף:', shareLink);
+  console.log('Success: File received. File ID:', fileId);
+  console.log('Share link:', shareLink);
+  console.log('--- End of /upload request ---');
 
   res.json({ message: 'הקובץ התקבל', shareLink });
 });
@@ -198,16 +199,23 @@ transporter.on('error', err => {
 });
 
 app.post('/sign/:fileId', async (req, res) => {
+  console.log('--- Start of /sign/:fileId request ---');
+  console.log('Request parameters:', req.params);
+  console.log('Request body:', req.body);
+
   const { fileId } = req.params;
   const { signerName, signatureImage } = req.body;
 
-  if (!signerName) return res.status(400).json({ error: 'חסר שם חתימה' });
-  if (!signatureImage) return res.status(400).json({ error: 'חסר חתימה' });
+  if (!signerName || !signatureImage) {
+    console.log('Error: Missing signerName or signatureImage');
+    return res.status(400).json({ error: 'חסרים נתונים' });
+  }
 
-  const files = fs.readdirSync(UPLOAD_FOLDER);
-  const wordFile = files.find(f => path.parse(f).name === fileId && (f.endsWith('.doc') || f.endsWith('.docx')));
+  const wordFile = fs.readdirSync(UPLOAD_FOLDER)
+    .find(f => path.parse(f).name === fileId && (f.endsWith('.doc') || f.endsWith('.docx')));
 
   if (!wordFile) {
+    console.log('Error: File not found for signing. File ID:', fileId);
     return res.status(404).json({ error: 'קובץ לא נמצא' });
   }
 
@@ -215,10 +223,11 @@ app.post('/sign/:fileId', async (req, res) => {
   const pdfPath = path.join(UPLOAD_FOLDER, `${fileId}.pdf`);
 
   try {
-    // --- שינוי קריטי כאן: פקודת ההמרה המתאימה ללינוקס (Render)
+    console.log('Attempting to convert Word to PDF...');
     execSync(`soffice --headless --convert-to pdf --outdir "${UPLOAD_FOLDER}" "${wordPath}"`);
-    console.log('הקובץ הומר בהצלחה ל-PDF');
+    console.log('Conversion successful.');
 
+    console.log('Attempting to load and sign PDF...');
     const pdfBytes = fs.readFileSync(pdfPath);
     const pdfDoc = await PDFDocument.load(pdfBytes);
     pdfDoc.registerFontkit(fontkit);
@@ -255,6 +264,9 @@ app.post('/sign/:fileId', async (req, res) => {
     const signedPdfBytes = await pdfDoc.save();
     fs.writeFileSync(pdfPath, signedPdfBytes);
 
+    console.log('PDF signing complete.');
+
+    console.log('Attempting to send email...');
     const mailOptions = {
       from: process.env.EMAIL_ADDRESS,
       to: process.env.EMAIL_ADDRESS,
@@ -264,11 +276,15 @@ app.post('/sign/:fileId', async (req, res) => {
     };
 
     await transporter.sendMail(mailOptions);
+    console.log('Email sent successfully.');
 
     res.json({ message: `המסמך נחתם ונשלח בהצלחה על ידי ${signerName}` });
+    console.log('--- End of /sign/:fileId request ---');
+
   } catch (error) {
     console.error('שגיאה בתהליך החתימה:', error);
     res.status(500).json({ error: 'שגיאה בתהליך החתימה: ' + error.message });
+    console.log('--- End of /sign/:fileId request with error ---');
   }
 });
 
