@@ -85,8 +85,13 @@ app.post('/sign/:fileId', async (req, res) => {
 
     // ⚠️ שימי לב: בשרת בענן רוב הסיכויים ש-LibreOffice לא מותקן ולכן שורה זו לא תעבוד!
     // אם את לא מריצה את השרת על מחשב וינדוס מקומי, יש צורך למצוא פתרון המרה אחר או להוסיף LibreOffice לשרת.
-    const sofficePath = `"C:\\Program Files\\LibreOffice\\program\\soffice.exe"`;
-    execSync(`${sofficePath} --headless --convert-to pdf --outdir "${UPLOAD_FOLDER}" "${wordPath}"`);
+try {
+  const sofficePath = `"C:\\Program Files\\LibreOffice\\program\\soffice.exe"`;
+  execSync(`${sofficePath} --headless --convert-to pdf --outdir "${UPLOAD_FOLDER}" "${wordPath}"`);
+} catch (err) {
+  console.error('המרת LibreOffice נכשלה:', err);
+  return res.status(500).json({ error: 'המרת המסמך ל-PDF נכשלה. וודא ש-LibreOffice מותקן או העלה PDF ישירות.' });
+}
 
     const pdfBytes = fs.readFileSync(pdfPath);
     const pdfDoc = await PDFDocument.load(pdfBytes);
