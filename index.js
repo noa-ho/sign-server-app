@@ -145,7 +145,6 @@ const app = express();
 const PORT = process.env.PORT || 5000;
 const CLIENT_URL = 'https://sign-client-app-2.onrender.com';
 
-
 // מאפשרים גישה רק מהקליינט בענן
 app.use(cors({ origin: ['http://localhost:3000', CLIENT_URL] }));
 app.use(express.json({ limit: '10mb' }));
@@ -165,7 +164,7 @@ const upload = multer({ storage });
 
 app.post('/upload', upload.single('file'), (req, res) => {
   console.log('קיבלנו בקשה להעלאת קובץ');
-  console.log('req.file:', req.file);  // כאן נדפיס את האובייקט של הקובץ שהגיע
+  console.log('req.file:', req.file);
 
   if (!req.file) {
     console.log('לא התקבל קובץ ב-body של הבקשה');
@@ -180,7 +179,6 @@ app.post('/upload', upload.single('file'), (req, res) => {
 
   res.json({ message: 'הקובץ התקבל', shareLink });
 });
-
 
 const transporter = nodemailer.createTransport({
   host: 'smtp.gmail.com',
@@ -206,23 +204,20 @@ app.post('/sign/:fileId', async (req, res) => {
   if (!signerName) return res.status(400).json({ error: 'חסר שם חתימה' });
   if (!signatureImage) return res.status(400).json({ error: 'חסר חתימה' });
 
+  const files = fs.readdirSync(UPLOAD_FOLDER);
+  const wordFile = files.find(f => path.parse(f).name === fileId && (f.endsWith('.doc') || f.endsWith('.docx')));
+
+  if (!wordFile) {
+    return res.status(404).json({ error: 'קובץ לא נמצא' });
+  }
+
+  const wordPath = path.join(UPLOAD_FOLDER, wordFile);
+  const pdfPath = path.join(UPLOAD_FOLDER, `${fileId}.pdf`);
+
   try {
-    const files = fs.readdirSync(UPLOAD_FOLDER);
-    const wordFile = files.find(f => path.parse(f).name === fileId && (f.endsWith('.doc') || f.endsWith('.docx')));
-    if (!wordFile) return res.status(404).json({ error: 'קובץ לא נמצא' });
-
-    const wordPath = path.join(UPLOAD_FOLDER, wordFile);
-    const pdfPath = path.join(UPLOAD_FOLDER, `${fileId}.pdf`);
-
-    // ⚠️ שימי לב: בשרת בענן רוב הסיכויים ש-LibreOffice לא מותקן ולכן שורה זו לא תעבוד!
-    // אם את לא מריצה את השרת על מחשב וינדוס מקומי, יש צורך למצוא פתרון המרה אחר או להוסיף LibreOffice לשרת.
-try {
-  const sofficePath = `"C:\\Program Files\\LibreOffice\\program\\soffice.exe"`;
-  execSync(`${sofficePath} --headless --convert-to pdf --outdir "${UPLOAD_FOLDER}" "${wordPath}"`);
-} catch (err) {
-  console.error('המרת LibreOffice נכשלה:', err);
-  return res.status(500).json({ error: 'המרת המסמך ל-PDF נכשלה. וודא ש-LibreOffice מותקן או העלה PDF ישירות.' });
-}
+    // --- שינוי קריטי כאן: פקודת ההמרה המתאימה ללינוקס (Render)
+    execSync(`soffice --headless --convert-to pdf --outdir "${UPLOAD_FOLDER}" "${wordPath}"`);
+    console.log('הקובץ הומר בהצלחה ל-PDF');
 
     const pdfBytes = fs.readFileSync(pdfPath);
     const pdfDoc = await PDFDocument.load(pdfBytes);
