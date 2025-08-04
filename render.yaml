@@ -1,0 +1,16 @@
+services:
+  - type: web
+    name: sign-server-app-3
+    env: node
+    plan: free
+    buildCommand: "npm install"
+    startCommand: "node index.js"
+    envVars:
+      - key: PUPPETEER_EXECUTABLE_PATH
+        value: "/usr/bin/chromium-browser"
+      - key: PUPPETEER_SKIP_CHROMIUM_DOWNLOAD
+        value: "true"
+    # This is the important part:
+    autoDeploy: false
+    repo: "https://github.com/your-username/your-repo-name"
+    dockerfilePath: "./Dockerfile"
