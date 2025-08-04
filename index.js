@@ -140,8 +140,9 @@ const { PDFDocument, rgb } = require('pdf-lib');
 const fontkit = require('@pdf-lib/fontkit');
 require('dotenv').config();
 
-// New import for the docx-pdf library
-const docxToPdf = require('docx-pdf');
+// New imports for the docx-to-pdf conversion
+const mammoth = require('mammoth');
+const pdf = require('html-pdf');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -226,16 +227,21 @@ app.post('/sign/:fileId', async (req, res) => {
   try {
     console.log('Attempting to convert Word to PDF...');
     
-    // REPLACED THE OLD CODE HERE
+    // Read the docx file and convert to HTML
+    const docxFileBuffer = fs.readFileSync(wordPath);
+    const { value: html } = await mammoth.convertToHtml({ buffer: docxFileBuffer });
+
+    // Use html-pdf to create the PDF from the generated HTML
     await new Promise((resolve, reject) => {
-      docxToPdf(wordPath, pdfPath, (err, result) => {
+      pdf.create(html, { format: 'A4' }).toFile(pdfPath, (err, res) => {
         if (err) {
           reject(err);
         } else {
-          resolve(result);
+          resolve(res);
         }
       });
     });
+    
     console.log('Conversion successful.');
 
     console.log('Attempting to load and sign PDF...');
