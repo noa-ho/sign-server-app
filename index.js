@@ -129,6 +129,8 @@
 // app.listen(PORT, () => {
 //   console.log(`✅ השרת רץ על http://localhost:${PORT}`);
 // });
+// index.js
+
 const express = require('express');
 const multer = require('multer');
 const cors = require('cors');
@@ -148,166 +150,202 @@ const app = express();
 const PORT = process.env.PORT || 5000;
 const CLIENT_URL = 'https://sign-client-app-2.onrender.com';
 
-app.use(cors({ origin: [CLIENT_URL] }));
+// Update CORS to allow requests from your client and other necessary origins
+app.use(cors({ origin: [CLIENT_URL, 'http://localhost:3000'] }));
 app.use(express.json({ limit: '10mb' }));
 
 const UPLOAD_FOLDER = path.join(__dirname, 'uploads');
 if (!fs.existsSync(UPLOAD_FOLDER)) fs.mkdirSync(UPLOAD_FOLDER);
 
 const storage = multer.diskStorage({
-  destination: (req, file, cb) => cb(null, UPLOAD_FOLDER),
-  filename: (req, file, cb) => {
-    const fileId = uuidv4();
-    const ext = path.extname(file.originalname);
-    cb(null, fileId + ext);
-  },
+  destination: (req, file, cb) => cb(null, UPLOAD_FOLDER),
+  filename: (req, file, cb) => {
+    const fileId = uuidv4();
+    const ext = path.extname(file.originalname);
+    cb(null, fileId + ext);
+  },
 });
 const upload = multer({ storage });
 
 app.post('/upload', upload.single('file'), (req, res) => {
-  console.log('--- Start of /upload request ---');
-  console.log('Request file:', req.file);
+  console.log('--- Start of /upload request ---');
+  console.log('Request file:', req.file);
 
-  if (!req.file) {
-    console.log('Error: No file received');
-    return res.status(400).json({ error: 'לא התקבל קובץ' });
-  }
+  if (!req.file) {
+    console.log('Error: No file received');
+    return res.status(400).json({ error: 'לא התקבל קובץ' });
+  }
 
-  const fileId = path.parse(req.file.filename).name;
-  const shareLink = `${CLIENT_URL}/sign/${fileId}`;
+  const fileId = path.parse(req.file.filename).name;
+  const shareLink = `${CLIENT_URL}/sign/${fileId}`;
 
-  console.log('Success: File received. File ID:', fileId);
-  console.log('Share link:', shareLink);
-  console.log('--- End of /upload request ---');
+  console.log('Success: File received. File ID:', fileId);
+  console.log('Share link:', shareLink);
+  console.log('--- End of /upload request ---');
 
-  res.json({ message: 'הקובץ התקבל', shareLink });
+  res.json({ message: 'הקובץ התקבל', shareLink });
 });
 
 const transporter = nodemailer.createTransport({
-  host: 'smtp.gmail.com',
-  port: 587,
-  secure: false,
-  auth: {
-    user: process.env.EMAIL_ADDRESS,
-    pass: process.env.EMAIL_PASSWORD,
-  },
-  tls: {
-    rejectUnauthorized: false,
-  },
+  host: 'smtp.gmail.com',
+  port: 587,
+  secure: false,
+  auth: {
+    user: process.env.EMAIL_ADDRESS,
+    pass: process.env.EMAIL_PASSWORD,
+  },
+  tls: {
+    rejectUnauthorized: false,
+  },
 });
 
 transporter.on('error', err => {
-  console.error('Nodemailer Error:', err);
+  console.error('Nodemailer Error:', err);
 });
 
 app.post('/sign/:fileId', async (req, res) => {
-  console.log('--- Start of /sign/:fileId request ---');
-  console.log('Request parameters:', req.params);
-  console.log('Request body:', req.body);
+  console.log('--- Start of /sign/:fileId request ---');
+  console.log('Request parameters:', req.params);
+  console.log('Request body:', req.body);
 
-  const { fileId } = req.params;
-  const { signerName, signatureImage } = req.body;
+  const { fileId } = req.params;
+  const { signerName, signatureImage } = req.body;
 
-  if (!signerName || !signatureImage) {
-    console.log('Error: Missing signerName or signatureImage');
-    return res.status(400).json({ error: 'חסרים נתונים' });
-  }
+  if (!signerName || !signatureImage) {
+    console.log('Error: Missing signerName or signatureImage');
+    return res.status(400).json({ error: 'חסרים נתונים' });
+  }
 
-  const wordFile = fs.readdirSync(UPLOAD_FOLDER)
-    .find(f => path.parse(f).name === fileId && (f.endsWith('.doc') || f.endsWith('.docx')));
+  const wordFile = fs.readdirSync(UPLOAD_FOLDER)
+    .find(f => path.parse(f).name === fileId && (f.endsWith('.doc') || f.endsWith('.docx')));
 
-  if (!wordFile) {
-    console.log('Error: File not found for signing. File ID:', fileId);
-    return res.status(404).json({ error: 'קובץ לא נמצא' });
-  }
+  if (!wordFile) {
+    console.log('Error: File not found for signing. File ID:', fileId);
+    return res.status(404).json({ error: 'קובץ לא נמצא' });
+  }
 
-  const wordPath = path.join(UPLOAD_FOLDER, wordFile);
-  const pdfPath = path.join(UPLOAD_FOLDER, `${fileId}.pdf`);
+  const wordPath = path.join(UPLOAD_FOLDER, wordFile);
+  const pdfPath = path.join(UPLOAD_FOLDER, `${fileId}.pdf`);
 
-  try {
-    console.log('Attempting to convert Word to PDF with mammoth and puppeteer...');
-    
-    // Read the docx file and convert to HTML
-    const docxFileBuffer = fs.readFileSync(wordPath);
-    const { value: html } = await mammoth.convertToHtml({ buffer: docxFileBuffer });
+  try {
+    console.log('Attempting to convert Word to PDF with mammoth and puppeteer...');
+    
+    // Read the docx file and convert to HTML
+    const docxFileBuffer = fs.readFileSync(wordPath);
+    const { value: htmlBody } = await mammoth.convertToHtml({ buffer: docxFileBuffer });
 
-    // Use puppeteer to create the PDF from the generated HTML
-    const browser = await puppeteer.launch({
-      args: ['--no-sandbox', '--disable-setuid-sandbox'],
-      executablePath: process.env.PUPPETEER_EXECUTABLE_PATH,
-    });
-    const page = await browser.newPage();
-    await page.setContent(html);
-    await page.pdf({ path: pdfPath, format: 'A4' });
-    await browser.close();
-    
-    console.log('Conversion successful.');
+    // Add a complete HTML structure with custom CSS for better PDF rendering
+    const finalHtml = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="UTF-8">
+        <style>
+          body {
+            font-family: 'Arial', sans-serif;
+            direction: rtl; /* For Hebrew text */
+            margin: 2cm;
+            font-size: 11pt;
+          }
+          /* This CSS helps with page breaks in the PDF */
+          p {
+            page-break-inside: avoid;
+          }
+          h1, h2, h3, h4, h5, h6 {
+            page-break-after: avoid;
+          }
+          table {
+            page-break-inside: avoid;
+          }
+          /* Add a more specific style to avoid page breaks inside paragraphs */
+          p:not(:last-child) {
+            margin-bottom: 1em;
+          }
+        </style>
+      </head>
+      <body>
+        ${htmlBody}
+      </body>
+      </html>
+    `;
 
-    console.log('Attempting to load and sign PDF...');
-    const pdfBytes = fs.readFileSync(pdfPath);
-    const pdfDoc = await PDFDocument.load(pdfBytes);
-    pdfDoc.registerFontkit(fontkit);
+    // Use puppeteer to create the PDF from the generated HTML
+    const browser = await puppeteer.launch({
+      args: ['--no-sandbox', '--disable-setuid-sandbox'],
+      executablePath: process.env.PUPPETEER_EXECUTABLE_PATH,
+    });
+    const page = await browser.newPage();
+    await page.setContent(finalHtml, { waitUntil: 'networkidle0' });
+    await page.pdf({ path: pdfPath, format: 'A4', printBackground: true });
+    await browser.close();
+    
+    console.log('Conversion successful.');
 
-    const fontBytes = fs.readFileSync(path.join(__dirname, 'fonts', 'Alef-Regular.ttf'));
-    const customFont = await pdfDoc.embedFont(fontBytes);
+    console.log('Attempting to load and sign PDF...');
+    const pdfBytes = fs.readFileSync(pdfPath);
+    const pdfDoc = await PDFDocument.load(pdfBytes);
+    pdfDoc.registerFontkit(fontkit);
 
-    const pages = pdfDoc.getPages();
-    const firstPage = pages[0];
+    const fontBytes = fs.readFileSync(path.join(__dirname, 'fonts', 'Alef-Regular.ttf'));
+    const customFont = await pdfDoc.embedFont(fontBytes);
 
-    const today = new Date();
-    const dateStr = today.toLocaleDateString('he-IL');
+    const pages = pdfDoc.getPages();
+    const firstPage = pages[0];
 
-    firstPage.drawText(`חתום על ידי: ${signerName} בתאריך: ${dateStr}`, {
-      x: 50,
-      y: 100,
-      size: 14,
-      font: customFont,
-      color: rgb(0, 0, 0),
-    });
+    const today = new Date();
+    const dateStr = today.toLocaleDateString('he-IL');
 
-    const base64Data = signatureImage.replace(/^data:image\/png;base64,/, "");
-    const signatureImageBytes = Buffer.from(base64Data, 'base64');
-    const pngImage = await pdfDoc.embedPng(signatureImageBytes);
-    const pngDims = pngImage.scale(0.5);
+    firstPage.drawText(`חתום על ידי: ${signerName} בתאריך: ${dateStr}`, {
+      x: 50,
+      y: 100,
+      size: 14,
+      font: customFont,
+      color: rgb(0, 0, 0),
+    });
 
-    firstPage.drawImage(pngImage, {
-      x: 50,
-      y: 150,
-      width: pngDims.width,
-      height: pngDims.height,
-    });
+    const base64Data = signatureImage.replace(/^data:image\/png;base64,/, "");
+    const signatureImageBytes = Buffer.from(base64Data, 'base64');
+    const pngImage = await pdfDoc.embedPng(signatureImageBytes);
+    const pngDims = pngImage.scale(0.5);
 
-    const signedPdfBytes = await pdfDoc.save();
-    fs.writeFileSync(pdfPath, signedPdfBytes);
+    firstPage.drawImage(pngImage, {
+      x: 50,
+      y: 150,
+      width: pngDims.width,
+      height: pngDims.height,
+    });
 
-    console.log('PDF signing complete.');
+    const signedPdfBytes = await pdfDoc.save();
+    fs.writeFileSync(pdfPath, signedPdfBytes);
 
-    console.log('Attempting to send email...');
-    const mailOptions = {
-      from: process.env.EMAIL_ADDRESS,
-      to: process.env.EMAIL_ADDRESS,
-      subject: `המסמך נחתם על ידי: ${signerName}`,
-      text: `המסמך נחתם על ידי ${signerName}. ראה קובץ מצורף.`,
-      attachments: [{ filename: `${fileId}.pdf`, path: pdfPath }],
-    };
+    console.log('PDF signing complete.');
 
-    await transporter.sendMail(mailOptions);
-    console.log('Email sent successfully.');
+    console.log('Attempting to send email...');
+    const mailOptions = {
+      from: process.env.EMAIL_ADDRESS,
+      to: process.env.EMAIL_ADDRESS,
+      subject: `המסמך נחתם על ידי: ${signerName}`,
+      text: `המסמך נחתם על ידי ${signerName}. ראה קובץ מצורף.`,
+      attachments: [{ filename: `${fileId}.pdf`, path: pdfPath }],
+    };
 
-    res.json({ message: `המסמך נחתם ונשלח בהצלחה על ידי ${signerName}` });
-    console.log('--- End of /sign/:fileId request ---');
+    await transporter.sendMail(mailOptions);
+    console.log('Email sent successfully.');
 
-  } catch (error) {
-    console.error('שגיאה בתהליך החתימה:', error);
-    res.status(500).json({ error: 'שגיאה בתהליך החתימה: ' + error.message });
-    console.log('--- End of /sign/:fileId request with error ---');
-  }
+    res.json({ message: `המסמך נחתם ונשלח בהצלחה על ידי ${signerName}` });
+    console.log('--- End of /sign/:fileId request ---');
+
+  } catch (error) {
+    console.error('שגיאה בתהליך החתימה:', error);
+    res.status(500).json({ error: 'שגיאה בתהליך החתימה: ' + error.message });
+    console.log('--- End of /sign/:fileId request with error ---');
+  }
 });
 
 app.get('/', (req, res) => {
-  res.send('✅ שרת חתימות פעיל');
+  res.send('✅ שרת חתימות פעיל');
 });
 
 app.listen(PORT, () => {
-  console.log(`✅ השרת רץ על פורט ${PORT}`);
+  console.log(`✅ השרת רץ על פורט ${PORT}`);
 });
