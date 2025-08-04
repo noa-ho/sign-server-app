@@ -142,7 +142,7 @@ require('dotenv').config();
 
 // New imports for the docx-to-pdf conversion
 const mammoth = require('mammoth');
-const pdf = require('html-pdf');
+const puppeteer = require('puppeteer');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -225,22 +225,21 @@ app.post('/sign/:fileId', async (req, res) => {
   const pdfPath = path.join(UPLOAD_FOLDER, `${fileId}.pdf`);
 
   try {
-    console.log('Attempting to convert Word to PDF...');
+    console.log('Attempting to convert Word to PDF with mammoth and puppeteer...');
     
     // Read the docx file and convert to HTML
     const docxFileBuffer = fs.readFileSync(wordPath);
     const { value: html } = await mammoth.convertToHtml({ buffer: docxFileBuffer });
 
-    // Use html-pdf to create the PDF from the generated HTML
-    await new Promise((resolve, reject) => {
-      pdf.create(html, { format: 'A4' }).toFile(pdfPath, (err, res) => {
-        if (err) {
-          reject(err);
-        } else {
-          resolve(res);
-        }
-      });
+    // Use puppeteer to create the PDF from the generated HTML
+    const browser = await puppeteer.launch({
+      args: ['--no-sandbox', '--disable-setuid-sandbox'],
+      executablePath: process.env.PUPPETEER_EXECUTABLE_PATH,
     });
+    const page = await browser.newPage();
+    await page.setContent(html);
+    await page.pdf({ path: pdfPath, format: 'A4' });
+    await browser.close();
     
     console.log('Conversion successful.');
 
