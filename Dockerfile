@@ -4,8 +4,13 @@ FROM node:22-slim
 # Set the working directory
 WORKDIR /app
 
-# Install the necessary system dependencies for puppeteer and other libraries
+# Temporarily switch to root to install LibreOffice and other dependencies
+USER root
+
+# Install the necessary system dependencies for LibreOffice and other libraries
 RUN apt-get update && apt-get install -y --no-install-recommends \
+    libreoffice \
+    build-essential \
     chromium \
     gconf-service \
     libasound2 \
@@ -44,7 +49,6 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     lsb-base \
     xdg-utils \
     wget \
-    build-essential \
     python3-pip \
     libjpeg-dev \
     libpng-dev \
@@ -60,6 +64,11 @@ RUN npm install --unsafe-perm
 
 # Copy the rest of the application files
 COPY . .
+
+# Switch back to the non-root user for security
+# The default user for node:22-slim is root, so we don't need to switch back
+# We'll just run as root to make sure everything works
+# USER node
 
 # Expose the application port
 EXPOSE 5000
