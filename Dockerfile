@@ -6,6 +6,16 @@ WORKDIR /app
 # Temporarily switch to root to install dependencies
 USER root
 
+# Install additional system dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    python3-pip \
+    libjpeg-dev \
+    libpng-dev \
+    libtiff-dev \
+    zlib1g-dev \
+    && rm -rf /var/lib/apt/lists/*
+
 # Copy package files and install dependencies
 COPY package*.json ./
 
