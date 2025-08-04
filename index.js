@@ -136,16 +136,18 @@ const fs = require('fs');
 const path = require('path');
 const { v4: uuidv4 } = require('uuid');
 const nodemailer = require('nodemailer');
-const { execSync } = require('child_process');
 const { PDFDocument, rgb } = require('pdf-lib');
 const fontkit = require('@pdf-lib/fontkit');
 require('dotenv').config();
+
+// New import for the docx-pdf library
+const docxToPdf = require('docx-pdf');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
 const CLIENT_URL = 'https://sign-client-app-2.onrender.com';
 
-app.use(cors({ origin: ['http://localhost:3000', CLIENT_URL] }));
+app.use(cors({ origin: [CLIENT_URL] }));
 app.use(express.json({ limit: '10mb' }));
 
 const UPLOAD_FOLDER = path.join(__dirname, 'uploads');
@@ -163,7 +165,6 @@ const upload = multer({ storage });
 
 app.post('/upload', upload.single('file'), (req, res) => {
   console.log('--- Start of /upload request ---');
-  console.log('Request body:', req.body);
   console.log('Request file:', req.file);
 
   if (!req.file) {
@@ -224,7 +225,17 @@ app.post('/sign/:fileId', async (req, res) => {
 
   try {
     console.log('Attempting to convert Word to PDF...');
-    execSync(`soffice --headless --convert-to pdf --outdir "${UPLOAD_FOLDER}" "${wordPath}"`);
+    
+    // REPLACED THE OLD CODE HERE
+    await new Promise((resolve, reject) => {
+      docxToPdf(wordPath, pdfPath, (err, result) => {
+        if (err) {
+          reject(err);
+        } else {
+          resolve(result);
+        }
+      });
+    });
     console.log('Conversion successful.');
 
     console.log('Attempting to load and sign PDF...');
